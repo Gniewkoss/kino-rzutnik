@@ -24,7 +24,7 @@ Aplikacja: http://localhost:3000
 | `RESERVATION_TTL_SECONDS` | `900` | czas ważności rezerwacji; **tryb testowy: `120`** |
 | `RATE_LIMIT_MAX` | `30` | ile rezerwacji jeden klient (IP) może wysłać w oknie |
 | `RATE_LIMIT_WINDOW_MS` | `10000` | długość okna limitu |
-| `TRUST_PROXY` | `0` | liczba proxy przed aplikacją (na Render/Railway: `1`), żeby limit widział prawdziwe IP |
+| `TRUST_PROXY` | `0` | liczba proxy przed aplikacją (na Render: `3`), żeby limit widział prawdziwe IP; sprawdzisz to w `/api/health` |
 
 ## Test chaosu
 

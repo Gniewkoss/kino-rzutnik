@@ -17,5 +17,6 @@ services:
         value: "30"
       - key: RATE_LIMIT_WINDOW_MS
         value: "10000"
+      # Render: klient → Cloudflare → load balancer → proxy przed aplikacją
       - key: TRUST_PROXY
-        value: "1"
+        value: "3"
