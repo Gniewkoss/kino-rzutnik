@@ -1,0 +1,21 @@
+# Render: New → Blueprint → wskaż repozytorium. MONGODB_URI wpisz ręcznie w panelu (MongoDB Atlas, darmowy klaster M0).
+services:
+  - type: web
+    name: kino-rzutnik
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    numInstances: 1 # limit ruchu jest w pamięci procesu: jedna instancja
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: kino
+      - key: RESERVATION_TTL_SECONDS
+        value: "120" # tryb testowy; produkcyjnie 900
+      - key: RATE_LIMIT_MAX
+        value: "30"
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "10000"
+      - key: TRUST_PROXY
+        value: "1"

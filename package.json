@@ -1,0 +1,20 @@
+{
+  "name": "kino-rzutnik",
+  "version": "1.0.0",
+  "description": "Kino Rzutnik: system rezerwacji biletów (PAS S01)",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "chaos": "node scripts/chaos.mjs"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "mongodb": "^6.10.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^10.1.2"
+  }
+}
