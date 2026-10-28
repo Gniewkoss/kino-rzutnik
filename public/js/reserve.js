@@ -1,5 +1,5 @@
 // Karta B: formularz rezerwacji fotela
-import { api, fmtTime, fmtDate, seatLabel, showMessage } from './common.js';
+import { api, el, fmtTime, fmtDate, seatLabel, showMessage, setBusy } from './common.js';
 
 const params = new URLSearchParams(location.search);
 const eventId = params.get('eventId') || '';
@@ -8,25 +8,24 @@ const seatId = params.get('seatId') || '';
 const form = document.getElementById('form');
 const submit = document.getElementById('submit');
 const msg = document.getElementById('msg');
+const backHref = `/events/${encodeURIComponent(eventId)}`;
 
+document.getElementById('chip').textContent = seatId || '?';
 document.getElementById('seat').textContent = seatLabel(seatId);
-document.getElementById('back').href = `/events/${encodeURIComponent(eventId)}`;
+document.getElementById('back').href = backHref;
+
+const fail = (text) => {
+  msg.className = 'notice error';
+  msg.replaceChildren(text, ' ', el('a', { href: backHref }, 'Wybierz inny fotel'));
+};
 
 api(`/api/events/${encodeURIComponent(eventId)}`).then(({ ok, data }) => {
-  if (!ok) {
-    showMessage(msg, 'Nie ma takiego seansu.');
-    submit.disabled = true;
-    return;
-  }
+  if (!ok) { fail('Nie ma takiego seansu.'); submit.disabled = true; return; }
   const { event, takenSeats } = data;
-  document.getElementById('meta').textContent = `${event.title} · ${fmtDate(event.startsAt)}, ${fmtTime(event.startsAt)} · ${event.hall}`;
-  if (!event.seats.includes(seatId)) {
-    showMessage(msg, 'Nie ma takiego fotela w tej sali.');
-    submit.disabled = true;
-  } else if (takenSeats.includes(seatId)) {
-    showMessage(msg, 'Ten fotel jest już zajęty. Wróć do sali i wybierz inny.');
-    submit.disabled = true;
-  }
+  document.title = `${seatId}, ${event.title} – Kino Rzutnik`;
+  document.getElementById('meta').textContent = `${event.title}, ${fmtDate(event.startsAt)}, ${fmtTime(event.startsAt)}, ${event.hall}`;
+  if (!event.seats.includes(seatId)) { fail('W tej sali nie ma takiego fotela.'); submit.disabled = true; }
+  else if (takenSeats.includes(seatId)) { fail('Ten fotel jest już zajęty.'); submit.disabled = true; }
 });
 
 let inFlight = false;
@@ -35,33 +34,27 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   // Blokada podwójnego kliknięcia; serwer i tak jest idempotentny
   if (inFlight) return;
-
-  const customerName = form.customerName.value.trim();
-  const email = form.email.value.trim();
-  if (!customerName) return showMessage(msg, 'Podaj imię i nazwisko.');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showMessage(msg, 'Podaj poprawny adres e-mail.');
+  if (!form.checkValidity()) {
+    form.querySelector(':invalid').focus();
+    return form.reportValidity();
+  }
 
   inFlight = true;
-  submit.disabled = true;
-  submit.textContent = 'Rezerwuję…';
+  setBusy(submit, true, 'Zarezerwuj fotel', 'Rezerwuję');
   msg.className = 'hidden';
 
   try {
     const res = await api('/api/reservations', {
       method: 'POST',
-      body: JSON.stringify({ eventId, seatId, customerName, email }),
+      body: JSON.stringify({ eventId, seatId, customerName: form.customerName.value.trim(), email: form.email.value.trim() }),
     });
-    if (res.ok) {
-      location.replace(`/reservations/${res.data.reservationId}`);
-      return;
-    }
-    if (res.status === 409) showMessage(msg, 'Ktoś był szybszy i ten fotel jest już zajęty. Wróć do sali i wybierz inny.');
-    else if (res.status === 429) showMessage(msg, `Za dużo prób. Spróbuj ponownie za ${res.headers.get('Retry-After') || 'kilka'} s.`);
-    else showMessage(msg, res.data?.message || 'Nie udało się zarezerwować fotela.');
+    if (res.ok) return location.replace(`/reservations/${res.data.reservationId}`);
+    if (res.status === 409) fail('Ktoś zarezerwował ten fotel przed chwilą.');
+    else if (res.status === 429) showMessage(msg, `Za dużo prób naraz. Spróbuj ponownie za ${res.headers.get('Retry-After') || 'kilka'} s.`, 'notice error');
+    else showMessage(msg, res.data?.message || 'Nie udało się zarezerwować fotela.', 'notice error');
   } catch {
-    showMessage(msg, 'Brak połączenia. Spróbuj ponownie.');
+    showMessage(msg, 'Brak połączenia. Spróbuj ponownie.', 'notice error');
   }
   inFlight = false;
-  submit.disabled = false;
-  submit.textContent = 'Zarezerwuj';
+  setBusy(submit, false, 'Zarezerwuj fotel');
 });
