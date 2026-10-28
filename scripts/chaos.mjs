@@ -248,14 +248,23 @@ try {
 }
 
 // Testy czasowe biegną równolegle, żeby nie czekać kilka razy po 2 minuty
+// Na wdrożeniu wszystkie żądania idą z jednego IP: przerwy, żeby testy nie wpadały w limit ruchu
+const isLocal = /localhost|127\.0\.0\.1/.test(BASE);
+const cooldown = () => (isLocal ? Promise.resolve() : sleep(11_000));
+
 await A1();
 await B1();
+await cooldown();
 await B2();
+await cooldown();
 await B3();
 await C1();
 await C3();
+await cooldown();
 const timed = [A2(), B4(), C2(), C4()];
 await Promise.all(timed);
+await cooldown();
+if (!isLocal) console.log('ℹ️  B5 z jednego IP: "drugi klient" to ten sam adres, więc 429 dla niego jest tu oczekiwane. Sprawdź B5 z innej sieci.');
 await B5();
 
 const order = ['A1', 'A2', 'B1', 'B2', 'B3', 'B4', 'B5', 'C1', 'C2', 'C3', 'C4'];

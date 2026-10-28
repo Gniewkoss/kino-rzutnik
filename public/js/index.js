@@ -1,50 +1,48 @@
 // Karta A: repertuar
-import { api, el, fmtTime, fmtDate } from './common.js';
+import { api, el, fmtTime, fmtDate, freeSeatsLabel } from './common.js';
 
 const list = document.getElementById('list');
 
 async function load() {
   const { ok, data } = await api('/api/events');
-  if (!ok) {
-    list.replaceChildren(el('p', { class: 'empty' }, 'Nie udało się pobrać repertuaru. Odśwież stronę.'));
-    return;
-  }
-  if (!data.length) {
-    list.replaceChildren(el('p', { class: 'empty' }, 'Brak seansów.'));
-    return;
-  }
+  if (!ok) return list.replaceChildren(el('p', { class: 'empty' }, 'Nie udało się wczytać repertuaru. Odśwież stronę.'));
+  if (!data.length) return list.replaceChildren(el('p', { class: 'empty' }, 'Na razie nie ma seansów w sprzedaży.'));
 
-  // Liczba wolnych foteli z endpointu szczegółów
+  // Zajętość sali z endpointu szczegółów
   const details = await Promise.all(data.map((e) => api(`/api/events/${encodeURIComponent(e._id)}`)));
 
   const byDay = new Map();
   data.forEach((event, i) => {
     const day = fmtDate(event.startsAt);
     if (!byDay.has(day)) byDay.set(day, []);
-    const d = details[i].ok ? details[i].data : null;
-    const free = d ? d.event.seats.length - d.takenSeats.length : null;
-    byDay.get(day).push({ event, free });
+    byDay.get(day).push({ event, detail: details[i].ok ? details[i].data : null });
   });
 
-  const nodes = [];
-  for (const [day, items] of byDay) {
-    nodes.push(el('h2', {}, day));
-    nodes.push(
-      el('div', { class: 'screenings' },
-        items.map(({ event, free }) =>
-          el('a', { class: 'screening', href: `/events/${encodeURIComponent(event._id)}` },
-            el('div', { class: 'time' }, fmtTime(event.startsAt)),
+  list.replaceChildren(
+    ...[...byDay].map(([day, items]) =>
+      el('section', { class: 'day' },
+        el('h2', { class: 'day-name' }, day),
+        items.map(({ event, detail }) => {
+          const total = detail?.event.seats.length ?? 0;
+          const free = detail ? total - detail.takenSeats.length : null;
+          return el('a', { class: 'show', href: `/events/${encodeURIComponent(event._id)}` },
+            el('time', { class: 'show-time', datetime: event.startsAt }, fmtTime(event.startsAt)),
             el('div', {},
-              el('div', { class: 'title' }, event.title),
-              el('div', { class: 'meta' }, [event.hall, event.genre, event.durationMin && `${event.durationMin} min`].filter(Boolean).join(' · ')),
+              el('h3', { class: 'show-title' }, event.title),
+              el('p', { class: 'show-meta' }, [event.genre, event.durationMin && `${event.durationMin} min`].filter(Boolean).join(', ')),
             ),
-            el('div', { class: 'free' }, free === null ? '' : [el('strong', {}, free), 'wolnych foteli']),
-          ),
-        ),
+            el('div', { class: 'show-side' },
+              el('span', {}, el('strong', {}, event.hall), free === null ? '' : `, ${freeSeatsLabel(free)}`),
+              free === null ? '' : el('div', {
+                class: 'meter', role: 'img', 'aria-label': `Sala zajęta w ${Math.round(((total - free) / total) * 100)}%`,
+                style: `--fill:${((total - free) / total) * 100}%`,
+              }, el('span')),
+            ),
+          );
+        }),
       ),
-    );
-  }
-  list.replaceChildren(...nodes);
+    ),
+  );
 }
 
-load();
+load().catch(() => list.replaceChildren(el('p', { class: 'empty' }, 'Brak połączenia z kinem. Odśwież stronę.')));

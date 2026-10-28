@@ -40,3 +40,17 @@ export function showMessage(node, text, kind = 'error') {
   node.className = `msg ${kind}`;
   node.textContent = text;
 }
+
+// Polska odmiana: 1 wolny fotel, 2 wolne fotele, 5 wolnych foteli
+export function plural(n, one, few, many) {
+  const mod10 = n % 10, mod100 = n % 100;
+  if (n === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
+export const freeSeatsLabel = (n) => `${n} ${plural(n, 'wolny fotel', 'wolne fotele', 'wolnych foteli')}`;
+
+export function setBusy(button, busy, idleText, busyText) {
+  button.disabled = busy;
+  button.replaceChildren(...(busy ? [el('span', { class: 'spinner', 'aria-hidden': 'true' }), busyText] : [idleText]));
+}
