@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rezerwacja fotela · Kino Rzutnik</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap">
+  <a class="brand" href="/"><img src="/logo.svg" alt="" width="34" height="34"><span class="brand-name">Kino <span>Rzutnik</span></span></a>
+  <nav>Repertuar</nav>
+</div></header>
+<main><div class="wrap">
+<a class="back" id="back" href="/">← Wróć do sali</a>
+<h1>Rezerwacja fotela</h1>
+<p class="lead" id="meta"></p>
+<form class="panel" id="form" novalidate>
+  <div class="seat-badge">Twój fotel: <strong id="seat">…</strong></div>
+  <label for="name">Imię i nazwisko</label>
+  <input id="name" name="customerName" autocomplete="name" required maxlength="100">
+  <label for="email">E-mail</label>
+  <input id="email" name="email" type="email" autocomplete="email" required maxlength="254">
+  <button class="btn" id="submit" type="submit">Zarezerwuj</button>
+  <div id="msg" class="hidden"></div>
+</form>
+</div></main>
+<footer class="site-footer"><div class="wrap">Kino Rzutnik · kasa biletowa · płatności online wkrótce</div></footer>
+<script type="module" src="/js/reserve.js"></script>
+</body>
+</html>

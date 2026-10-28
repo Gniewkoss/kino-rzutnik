@@ -1,0 +1,12 @@
+# Lokalnie z prawdziwą bazą: docker compose up
+services:
+  mongo:
+    image: mongo:7
+    ports: ["27017:27017"]
+  app:
+    build: .
+    ports: ["3000:3000"]
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      RESERVATION_TTL_SECONDS: "120"
+    depends_on: [mongo]
