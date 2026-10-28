@@ -20,7 +20,8 @@ export function createApp(collections, config) {
     next();
   });
 
-  app.get('/api/health', (req, res) => res.json({ ok: true }));
+  // ip: adres, który widzi limit ruchu (do sprawdzenia konfiguracji TRUST_PROXY na hostingu)
+  app.get('/api/health', (req, res) => res.json({ ok: true, ip: req.ip, forwardedFor: req.get('x-forwarded-for') || null }));
   app.use('/api/events', eventsRouter(collections));
   app.use(
     '/api/reservations',
