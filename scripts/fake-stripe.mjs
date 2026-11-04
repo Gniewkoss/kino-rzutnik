@@ -42,6 +42,10 @@ export function startFakeStripe({ port = 4242, webhookUrl, webhookSecret } = {})
         const key = req.headers['idempotency-key'];
         if (state.byKey.has(key)) return json(200, state.sessions.get(state.byKey.get(key)));
         const form = parseForm(body);
+        // Prawdziwe API odrzuca ten parametr przy tworzeniu sesji
+        if (Object.keys(form).some((k) => k.startsWith('payment_method_types'))) {
+          return json(400, { error: { type: 'invalid_request_error', message: 'Atrapa: payment_method_types nie jest obsługiwane' } });
+        }
         const id = `cs_test_${randomUUID().replaceAll('-', '')}`;
         const session = {
           id,

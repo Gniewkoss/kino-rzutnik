@@ -30,8 +30,8 @@ Z `ALLOW_DIRECT_PURCHASE=true` (tylko testy) `purchase` działa jak w etapie I: 
 
 ## Płatność
 
-- Sesja Checkout ma `client_reference_id` = id rezerwacji, kwotę `amount`, walutę PLN i tylko karty.
-- Bilet powstaje wyłącznie w webhooku po `checkout.session.completed` z `payment_status: "paid"`.
+- Sesja Checkout ma `client_reference_id` = id rezerwacji, kwotę `amount` i walutę PLN. Metody płatności ustawia się w panelu Stripe'a.
+- Bilet powstaje wyłącznie w webhooku po `checkout.session.completed` z `payment_status: "paid"` (albo `checkout.session.async_payment_succeeded` dla metod z opóźnieniem).
 - Płatność po czasie: fotel wolny → bilet; fotel zajęty → automatyczny zwrot, `status: "expired"`, `refunded: true`.
 
 ## Strony

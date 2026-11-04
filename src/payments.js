@@ -22,7 +22,6 @@ export function createPayments(config) {
       return stripe.checkout.sessions.create(
         {
           mode: 'payment',
-          payment_method_types: ['card'],
           client_reference_id: reservationId,
           customer_email: email,
           metadata,

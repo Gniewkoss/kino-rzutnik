@@ -34,7 +34,7 @@ Aplikacja: http://localhost:3000
 
 1. Załóż konto Stripe i zostań w trybie testowym. Skopiuj klucz `sk_test_…`.
 2. Dodaj nauczyciela: Settings → Team → New member, rola z dostępem tylko do odczytu.
-3. Wdrożenie: w Stripe'ie Developers → Webhooks → Add endpoint, adres `https://kino-rzutnik.onrender.com/api/webhooks/stripe`, zdarzenie `checkout.session.completed`. W panelu Render ustaw `STRIPE_SECRET_KEY` i `STRIPE_WEBHOOK_SECRET` z tego endpointu.
+3. Wdrożenie: w Stripe'ie Developers → Webhooks → Add endpoint, adres `https://kino-rzutnik.onrender.com/api/webhooks/stripe`, zdarzenia `checkout.session.completed` i `checkout.session.async_payment_succeeded`. W panelu Render ustaw `STRIPE_SECRET_KEY` i `STRIPE_WEBHOOK_SECRET` z tego endpointu.
 4. Lokalnie:
 
 ```bash
