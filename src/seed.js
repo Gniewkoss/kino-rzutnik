@@ -1,3 +1,6 @@
+// Cena fotela w groszach, taka sama na każdym seansie
+const SEAT_PRICE = 3200;
+
 // Przykładowe dane: 3 seanse w 2 salach po 8×10 foteli (rzędy A–H, miejsca 1–10)
 const ROWS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const SEATS_PER_ROW = 10;
@@ -14,6 +17,7 @@ export const sampleEvents = [
     hall: 'Sala 1',
     durationMin: 128,
     genre: 'Sci-fi',
+    price: SEAT_PRICE,
     seats: hallSeats(),
   },
   {
@@ -23,6 +27,7 @@ export const sampleEvents = [
     hall: 'Sala 2',
     durationMin: 104,
     genre: 'Dramat',
+    price: SEAT_PRICE,
     seats: hallSeats(),
   },
   {
@@ -32,6 +37,7 @@ export const sampleEvents = [
     hall: 'Sala 1',
     durationMin: 96,
     genre: 'Komedia kryminalna',
+    price: SEAT_PRICE,
     seats: hallSeats(),
   },
 ];
@@ -39,8 +45,10 @@ export const sampleEvents = [
 export async function seed({ events }) {
   // $setOnInsert: seed nie nadpisuje danych, które już są w bazie
   await events.bulkWrite(
-    sampleEvents.map(({ _id, ...rest }) => ({
-      updateOne: { filter: { _id }, update: { $setOnInsert: rest }, upsert: true },
-    })),
+    sampleEvents.flatMap(({ _id, price, ...rest }) => [
+      { updateOne: { filter: { _id }, update: { $setOnInsert: rest }, upsert: true } },
+      // Seanse z etapu I są już w bazie i nie mają ceny; ustalonej ceny nie ruszamy
+      { updateOne: { filter: { _id, price: { $exists: false } }, update: { $set: { price } } } },
+    ]),
   );
 }

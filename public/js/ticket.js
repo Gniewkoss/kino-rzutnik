@@ -1,5 +1,5 @@
 // Karta C: bilet z kodem, dodanie do kalendarza, udostępnienie, druk
-import { api, el, fmtTime, fmtDateShort, parseSeat } from './common.js';
+import { api, el, fmtTime, fmtDateShort, fmtPrice, parseSeat } from './common.js';
 
 const code = decodeURIComponent(location.pathname.split('/').pop());
 const box = document.getElementById('ticket');
@@ -55,6 +55,7 @@ async function load() {
           fact('Rząd', seat.row),
           fact('Miejsce', seat.number),
           fact('Widz', data.customerName),
+          data.amount ? fact('Zapłacono', fmtPrice(data.amount)) : '',
         ),
       ),
       el('div', { class: 'ticket-stub' },

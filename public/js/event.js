@@ -1,5 +1,5 @@
 // Karta A: mapa sali. Klik w wolny fotel prowadzi do formularza z karty B.
-import { api, el, fmtTime, fmtDate, parseSeat, seatLabel, freeSeatsLabel, showMessage } from './common.js';
+import { api, el, fmtTime, fmtDate, parseSeat, seatLabel, freeSeatsLabel, showMessage, fmtPrice } from './common.js';
 
 const eventId = decodeURIComponent(location.pathname.split('/').pop());
 const rowsNode = document.getElementById('rows');
@@ -73,6 +73,7 @@ async function load(first) {
     ...fact('Kiedy', `${fmtDate(event.startsAt)}, ${fmtTime(event.startsAt)}`),
     ...fact('Gdzie', event.hall),
     ...(event.durationMin ? fact('Czas', `${event.durationMin} min`) : []),
+    ...(event.price ? fact('Cena', `${fmtPrice(event.price)} za fotel`) : []),
     ...fact('Wolne', freeSeatsLabel(event.seats.length - takenSeats.length)),
   );
   update(takenSeats, first);

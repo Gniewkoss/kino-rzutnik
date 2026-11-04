@@ -1,5 +1,5 @@
 // Karta B: formularz rezerwacji fotela
-import { api, el, fmtTime, fmtDate, seatLabel, showMessage, setBusy } from './common.js';
+import { api, el, fmtTime, fmtDate, fmtPrice, seatLabel, showMessage, setBusy } from './common.js';
 
 const params = new URLSearchParams(location.search);
 const eventId = params.get('eventId') || '';
@@ -23,7 +23,7 @@ api(`/api/events/${encodeURIComponent(eventId)}`).then(({ ok, data }) => {
   if (!ok) { fail('Nie ma takiego seansu.'); submit.disabled = true; return; }
   const { event, takenSeats } = data;
   document.title = `${seatId}, ${event.title} – Kino Rzutnik`;
-  document.getElementById('meta').textContent = `${event.title}, ${fmtDate(event.startsAt)}, ${fmtTime(event.startsAt)}, ${event.hall}`;
+  document.getElementById('meta').textContent = `${event.title}, ${fmtDate(event.startsAt)}, ${fmtTime(event.startsAt)}, ${event.hall}. Cena: ${fmtPrice(event.price)}.`;
   if (!event.seats.includes(seatId)) { fail('W tej sali nie ma takiego fotela.'); submit.disabled = true; }
   else if (takenSeats.includes(seatId)) { fail('Ten fotel jest już zajęty.'); submit.disabled = true; }
 });

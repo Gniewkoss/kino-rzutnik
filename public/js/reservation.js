@@ -1,5 +1,5 @@
-// Karta B: ekran z licznikiem; karta C: przycisk zakupu
-import { api, el, fmtTime, fmtDate, seatLabel, showMessage, setBusy } from './common.js';
+// Ekran z licznikiem i przycisk „Zapłać”, który przenosi na stronę płatności Stripe'a
+import { api, el, fmtTime, fmtDate, fmtPrice, seatLabel, showMessage, setBusy } from './common.js';
 
 const reservationId = location.pathname.split('/').pop();
 const holding = document.getElementById('holding');
@@ -11,6 +11,7 @@ const msg = document.getElementById('msg');
 let timer;
 let eventHref = '/';
 let baseTitle = document.title;
+let payLabel = 'Zapłać';
 
 function expired() {
   clearInterval(timer);
@@ -48,7 +49,7 @@ async function load() {
     document.getElementById('chip').classList.add('hidden');
     return;
   }
-  if (data.status === 'purchased') return location.replace(`/tickets/${data.code}`);
+  if (data.status === 'paid') return location.replace(`/tickets/${data.code}`);
 
   const { event } = data;
   eventHref = `/events/${encodeURIComponent(data.eventId)}`;
@@ -62,6 +63,12 @@ async function load() {
   }
 
   if (data.status === 'expired') return expired();
+
+  if (data.amount) payLabel = `Zapłać ${fmtPrice(data.amount)}`;
+  buy.textContent = payLabel;
+  if (new URLSearchParams(location.search).get('payment') === 'canceled') {
+    showMessage(msg, 'Płatność przerwana, nic nie pobraliśmy. Możesz zapłacić jeszcze raz, dopóki trwa rezerwacja.', 'notice');
+  }
   const total = Math.max(1, new Date(data.expiresAt) - new Date(data.createdAt));
   startCountdown(data.expiresAt, data.serverTime, total);
 }
@@ -69,21 +76,30 @@ async function load() {
 let inFlight = false;
 
 buy.addEventListener('click', async () => {
-  // Blokada podwójnego „Kupuję”; serwer i tak zwraca ten sam kod
+  // Blokada podwójnego kliknięcia; serwer i tak oddaje tę samą sesję płatności
   if (inFlight) return;
   inFlight = true;
-  setBusy(buy, true, 'Kupuję bilet', 'Wystawiam bilet');
+  setBusy(buy, true, payLabel, 'Przechodzę do płatności');
+  msg.className = 'hidden';
 
   try {
-    const res = await api(`/api/reservations/${encodeURIComponent(reservationId)}/purchase`, { method: 'POST' });
-    if (res.ok) return location.replace(`/tickets/${res.data.code}`);
+    const res = await api(`/api/reservations/${encodeURIComponent(reservationId)}/checkout`, { method: 'POST' });
+    if (res.ok) return location.assign(res.data.url);
     if (res.status === 410) return expired();
-    showMessage(msg, res.data?.message || 'Nie udało się kupić biletu.', 'notice error');
+    if (res.status === 409) return location.replace(`/reservations/${encodeURIComponent(reservationId)}/payment`);
+    showMessage(msg, res.data?.message || 'Nie udało się rozpocząć płatności.', 'notice error');
   } catch {
     showMessage(msg, 'Brak połączenia. Spróbuj ponownie, rezerwacja nadal trwa.', 'notice error');
   }
   inFlight = false;
-  setBusy(buy, false, 'Kupuję bilet');
+  setBusy(buy, false, payLabel);
+});
+
+// Powrót przyciskiem „wstecz” ze Stripe'a: przeglądarka odtwarza stronę z zablokowanym przyciskiem
+window.addEventListener('pageshow', (e) => {
+  if (!e.persisted) return;
+  inFlight = false;
+  setBusy(buy, false, payLabel);
 });
 
 load().catch(() => showMessage(msg, 'Brak połączenia z kinem. Odśwież stronę.', 'notice error'));

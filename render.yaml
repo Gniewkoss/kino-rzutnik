@@ -9,6 +9,11 @@ services:
     envVars:
       - key: MONGODB_URI
         sync: false
+      # Tylko klucze testowe (sk_test_…), wpisz je w panelu Render, nie w repozytorium
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
       - key: MONGODB_DB
         value: kino
       - key: RESERVATION_TTL_SECONDS

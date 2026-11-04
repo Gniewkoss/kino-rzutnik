@@ -1,20 +1,12 @@
-// Karta C: zakup biletu na podstawie ważnej rezerwacji
+// Bilet: zakup bezpośredni z etapu I i odczyt biletu po kodzie
 import { Router } from 'express';
-import { randomBytes } from 'node:crypto';
 import { HttpError } from '../errors.js';
 import { isReservationId } from '../validation.js';
-import { holdKey } from '../holds.js';
+import { reservationState } from '../holds.js';
+import { issueTicket } from '../tickets.js';
 
-// Bez znaków mylących się na bilecie (0/O, 1/I)
-const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-
-function ticketCode() {
-  const bytes = randomBytes(8);
-  const chars = Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('');
-  return `RZ-${chars.slice(0, 4)}-${chars.slice(4)}`;
-}
-
-export function purchaseRouter({ events, reservations, seatHolds }) {
+export function purchaseRouter(collections, { allowDirectPurchase }) {
+  const { reservations, seatHolds } = collections;
   const router = Router();
 
   router.post('/:id/purchase', async (req, res) => {
@@ -23,38 +15,17 @@ export function purchaseRouter({ events, reservations, seatHolds }) {
 
     const reservation = await reservations.findOne({ _id: id });
     if (!reservation) throw new HttpError(404, 'RESERVATION_NOT_FOUND', 'Nie ma takiej rezerwacji');
-    if (reservation.status === 'purchased') return res.status(200).json({ code: reservation.code });
 
-    const key = holdKey(reservation.eventId, reservation.seatId);
-    const now = new Date();
-    const code = ticketCode();
+    const { state, hold } = await reservationState(seatHolds, reservation);
+    if (state === 'purchased') return res.status(200).json({ code: hold.code });
+    if (state === 'expired') throw new HttpError(410, 'RESERVATION_EXPIRED', 'Rezerwacja wygasła, fotel wrócił do puli');
 
-    // Atomowo: kupić można tylko własną, jeszcze ważną rezerwację.
-    // Ten sam dokument zmienia rezerwacja innej osoby, więc baza rozstrzyga wyścig.
-    const won = await seatHolds.findOneAndUpdate(
-      { _id: key, reservationId: id, status: 'held', expiresAt: { $gt: now } },
-      { $set: { status: 'purchased', code, purchasedAt: now } },
-      { returnDocument: 'after' },
-    );
+    // Od etapu II bilet powstaje dopiero po płatności (webhook Stripe'a)
+    if (!allowDirectPurchase) throw new HttpError(402, 'PAYMENT_REQUIRED', 'Bilet wystawiamy po płatności kartą');
 
-    let finalCode;
-    if (won) {
-      finalCode = won.code;
-    } else {
-      // Równoległy zakup tej samej rezerwacji mógł wygrać chwilę wcześniej: oddajemy ten sam kod
-      const hold = await seatHolds.findOne({ _id: key });
-      if (hold?.reservationId === id && hold.status === 'purchased') {
-        finalCode = hold.code;
-      } else {
-        throw new HttpError(410, 'RESERVATION_EXPIRED', 'Rezerwacja wygasła, fotel wrócił do puli');
-      }
-    }
-
-    await reservations.updateOne(
-      { _id: id },
-      { $set: { status: 'purchased', code: finalCode, purchasedAt: now } },
-    );
-    res.status(200).json({ code: finalCode });
+    const code = await issueTicket(collections, reservation, { holdFilter: { expiresAt: { $gt: new Date() } } });
+    if (!code) throw new HttpError(410, 'RESERVATION_EXPIRED', 'Rezerwacja wygasła, fotel wrócił do puli');
+    res.status(200).json({ code });
   });
 
   return router;
@@ -78,6 +49,7 @@ export function ticketsRouter({ events, seatHolds }) {
       seatId: hold.seatId,
       customerName: hold.customerName,
       purchasedAt: hold.purchasedAt,
+      amount: hold.amount,
       event,
     });
   });

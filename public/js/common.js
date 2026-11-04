@@ -15,6 +15,9 @@ export const fmtTime = (iso) => new Date(iso).toLocaleTimeString('pl-PL', { hour
 export const fmtDate = (iso) => new Date(iso).toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz });
 export const fmtDateShort = (iso) => new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', timeZone: tz });
 
+// Kwoty w API są w groszach: 3200 -> "32 zł", 3250 -> "32,50 zł"
+export const fmtPrice = (grosze) => `${(grosze / 100).toLocaleString('pl-PL', { minimumFractionDigits: grosze % 100 ? 2 : 0 })} zł`;
+
 // "F7" -> { row: "F", number: 7 }
 export function parseSeat(seatId) {
   const m = /^([A-Z])(\d+)$/.exec(seatId || '');

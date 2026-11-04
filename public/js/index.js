@@ -1,5 +1,5 @@
 // Karta A: repertuar
-import { api, el, fmtTime, fmtDate, freeSeatsLabel } from './common.js';
+import { api, el, fmtTime, fmtDate, fmtPrice, freeSeatsLabel } from './common.js';
 
 const list = document.getElementById('list');
 
@@ -32,7 +32,7 @@ async function load() {
               el('p', { class: 'show-meta' }, [event.genre, event.durationMin && `${event.durationMin} min`].filter(Boolean).join(', ')),
             ),
             el('div', { class: 'show-side' },
-              el('span', {}, el('strong', {}, event.hall), free === null ? '' : `, ${freeSeatsLabel(free)}`),
+              el('span', {}, el('strong', {}, event.hall), free === null ? '' : `, ${freeSeatsLabel(free)}`, event.price ? `, ${fmtPrice(event.price)}` : ''),
               free === null ? '' : el('div', {
                 class: 'meter', role: 'img', 'aria-label': `Sala zajęta w ${Math.round(((total - free) / total) * 100)}%`,
                 style: `--fill:${((total - free) / total) * 100}%`,

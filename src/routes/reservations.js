@@ -3,17 +3,17 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { HttpError } from '../errors.js';
 import { parseReservationBody, isReservationId } from '../validation.js';
-import { holdKey, holdState } from '../holds.js';
+import { holdKey, holdState, reservationState } from '../holds.js';
 
 const DUPLICATE_KEY = 11000;
 
-export function reservationsRouter({ events, reservations, seatHolds }, { ttlMs, limiter }) {
+export function reservationsRouter({ events, reservations, seatHolds }, { ttlMs, limiter, payments }) {
   const router = Router();
 
   router.post('/', limiter, async (req, res) => {
     const input = parseReservationBody(req.body);
 
-    const event = await events.findOne({ _id: input.eventId }, { projection: { seats: 1 } });
+    const event = await events.findOne({ _id: input.eventId }, { projection: { seats: 1, price: 1 } });
     if (!event) throw new HttpError(404, 'EVENT_NOT_FOUND', 'Nie ma takiego seansu');
     if (!event.seats.includes(input.seatId)) {
       throw new HttpError(400, 'SEAT_NOT_FOUND', 'Nie ma takiego fotela w tej sali');
@@ -31,7 +31,7 @@ export function reservationsRouter({ events, reservations, seatHolds }, { ttlMs,
         // Atomowo: fotel wolny (brak dokumentu) albo trzymany przez wygasłą rezerwację.
         // Jeśli fotel jest zajęty, filtr nie pasuje, upsert próbuje wstawić ten sam _id
         // i baza zwraca duplicate key. Dzięki temu z 20 równoległych prób wygrywa jedna.
-        await seatHolds.updateOne(
+        const previous = await seatHolds.findOneAndUpdate(
           { _id: key, status: 'held', expiresAt: { $lte: now } },
           {
             $set: {
@@ -41,13 +41,19 @@ export function reservationsRouter({ events, reservations, seatHolds }, { ttlMs,
               customerName: input.customerName,
               email: input.email,
               status: 'held',
+              amount: event.price,
               expiresAt,
               createdAt: now,
             },
-            $unset: { code: '', purchasedAt: '' },
+            $unset: { code: '', purchasedAt: '', stripeSessionId: '' },
           },
-          { upsert: true },
+          { upsert: true, returnDocument: 'before' },
         );
+        // Fotel przejęty po wygasłej rezerwacji: zamykamy jej sesję, żeby nikt nie zapłacił za cudzy fotel.
+        // Jeśli to się nie uda, webhook i tak odda pieniądze.
+        if (previous?.stripeSessionId) {
+          payments?.expireSession(previous.stripeSessionId).catch((e) => console.warn('Stripe: nie zamknięto sesji:', e.message));
+        }
       } catch (err) {
         if (err?.code !== DUPLICATE_KEY) throw err;
 
@@ -57,40 +63,38 @@ export function reservationsRouter({ events, reservations, seatHolds }, { ttlMs,
 
         // Idempotentność: ten sam klient powtórzył to samo żądanie, oddajemy tę samą rezerwację
         if (state === 'held' && hold.email === input.email && hold.customerName === input.customerName) {
-          return res.status(200).json({ reservationId: hold.reservationId, expiresAt: hold.expiresAt });
+          return res.status(200).json({ reservationId: hold.reservationId, expiresAt: hold.expiresAt, amount: hold.amount ?? event.price });
         }
         throw new HttpError(409, 'SEAT_TAKEN', 'Ten fotel jest już zajęty');
       }
 
       try {
-        await reservations.insertOne({ _id: reservationId, ...input, status: 'held', expiresAt, createdAt: now });
+        await reservations.insertOne({ _id: reservationId, ...input, amount: event.price, status: 'held', expiresAt, createdAt: now });
       } catch (err) {
         // Nie zostawiamy fotela zablokowanego przez rezerwację, której nie ma
         await seatHolds.deleteOne({ _id: key, reservationId, status: 'held' }).catch(() => {});
         throw err;
       }
 
-      return res.status(201).json({ reservationId, expiresAt });
+      return res.status(201).json({ reservationId, expiresAt, amount: event.price });
     }
 
     throw new HttpError(409, 'SEAT_TAKEN', 'Ten fotel jest już zajęty');
   });
 
-  // Stan rezerwacji dla ekranu z licznikiem (poza wspólnym kontraktem)
+  // Stan rezerwacji: status to "held", "paid" albo "expired" (w bazie opłacona rezerwacja ma status purchased)
   router.get('/:id', async (req, res) => {
     if (!isReservationId(req.params.id)) throw new HttpError(404, 'RESERVATION_NOT_FOUND', 'Nie ma takiej rezerwacji');
     const reservation = await reservations.findOne({ _id: req.params.id });
     if (!reservation) throw new HttpError(404, 'RESERVATION_NOT_FOUND', 'Nie ma takiej rezerwacji');
 
     const now = new Date();
-    const hold = await seatHolds.findOne({ _id: holdKey(reservation.eventId, reservation.seatId) });
-    const mine = hold?.reservationId === reservation._id;
-    const state = mine ? holdState(hold, now) : 'free';
-    const status = state === 'purchased' ? 'purchased' : state === 'held' ? 'held' : 'expired';
+    const { state, hold } = await reservationState(seatHolds, reservation, now);
+    const status = state === 'purchased' ? 'paid' : state;
 
     const event = await events.findOne(
       { _id: reservation.eventId },
-      { projection: { title: 1, startsAt: 1, hall: 1, durationMin: 1 } },
+      { projection: { title: 1, startsAt: 1, hall: 1, durationMin: 1, price: 1 } },
     );
 
     res.json({
@@ -99,10 +103,12 @@ export function reservationsRouter({ events, reservations, seatHolds }, { ttlMs,
       seatId: reservation.seatId,
       customerName: reservation.customerName,
       status,
+      amount: reservation.amount ?? event?.price,
+      refunded: reservation.refundedAt ? true : undefined,
       createdAt: reservation.createdAt,
       expiresAt: reservation.expiresAt,
       serverTime: now,
-      code: status === 'purchased' ? hold.code : undefined,
+      code: status === 'paid' ? hold.code : undefined,
       event,
     });
   });
