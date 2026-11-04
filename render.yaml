@@ -14,6 +14,15 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+      # Sandbox Voucherify i Resend, też tylko w panelu
+      - key: VOUCHERIFY_APP_ID
+        sync: false
+      - key: VOUCHERIFY_APP_TOKEN
+        sync: false
+      - key: VOUCHERIFY_CAMPAIGN_ID
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
       - key: MONGODB_DB
         value: kino
       - key: RESERVATION_TTL_SECONDS

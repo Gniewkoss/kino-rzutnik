@@ -22,3 +22,14 @@ Karty są niezależne tak jak w etapie I. Stripe jest schowany w `src/payments.j
 | **B. Webhook** | `src/routes/webhooks.js`, `src/tickets.js` | podpis, oznaczenie rezerwacji jako opłaconej, kod biletu, zwrot przy płatności po czasie |
 | **C. Powrót do sklepu** | `GET /api/reservations/:id` w `src/routes/reservations.js`, `public/payment.html`, `public/js/payment.js`, komunikat po przerwaniu w `public/js/reservation.js` | „Płatność w toku…”, która sama zamienia się w bilet, ponowna płatność po przerwaniu |
 | **L3. Spięcie** (lider) | `scripts/chaos-stripe.mjs`, `scripts/fake-stripe.mjs`, `docs/`, konfiguracja Stripe'a i Rendera | kontrakt wewnętrzny, lista zagrożeń 15–29, test przed demo |
+
+# Karty etapu III
+
+Karty są niezależne tak jak wcześniej. Do testów bez kont służy `scripts/fake-services.mjs` (Stripe, Voucherify i Resend na jednym porcie).
+
+| Karta | Pliki | Zakres |
+|---|---|---|
+| **A. Punkty za zakupy** | `src/routes/loyalty.js`, `src/loyalty.js`, `src/voucherify.js`, `earn-points` w `src/saga.js`, saldo w `public/js/reserve.js` | `GET /api/loyalty`, 1000 pkt na start, punkty za część zapłaconą kartą |
+| **B. Płatność punktami** | `src/routes/checkout.js`, `src/payments.js`, pole w `public/reservation.html` i `public/js/reservation.js` | „Użyj punktów”, podpowiedź, „Zapłać 22 zł”, punkty schodzą z karty, sesja na kwotę po odjęciu punktów |
+| **C. Potwierdzenie zakupu** | `src/mail.js`, `ticket-email` w `src/saga.js`, `public/js/ticket.js`, pola w `GET /api/reservations/:id` | mail przez Resend, to samo podsumowanie na bilecie |
+| **L4. Niezawodność** (lider) | `src/jobs.js`, `src/saga.js`, `src/locks.js`, `src/routes/webhooks.js`, `docs/NIEZAWODNOSC.md`, `scripts/chaos-stripe.mjs` | outbox, inbox, saga, kompensacje, lista zagrożeń 30–45 |

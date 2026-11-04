@@ -6,18 +6,18 @@ import { reservationsRouter } from './routes/reservations.js';
 import { purchaseRouter, ticketsRouter } from './routes/purchase.js';
 import { checkoutRouter } from './routes/checkout.js';
 import { stripeWebhook } from './routes/webhooks.js';
-import { createPayments } from './payments.js';
+import { loyaltyRouter } from './routes/loyalty.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { errorHandler, notFoundApi } from './middleware/errors.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
-export function createApp(collections, config) {
+export function createApp(collections, config, services) {
   const app = express();
   app.disable('x-powered-by');
   if (config.trustProxy) app.set('trust proxy', config.trustProxy);
 
-  const payments = createPayments(config);
+  const { payments, loyalty, mailer, sagas } = services;
   const limiter = () => rateLimit({ max: config.rateLimitMax, windowMs: config.rateLimitWindowMs });
 
   app.use('/api', (req, res, next) => {
@@ -34,13 +34,17 @@ export function createApp(collections, config) {
   app.use(express.json({ limit: '10kb' }));
 
   // ip: adres, który widzi limit ruchu (do sprawdzenia konfiguracji TRUST_PROXY na hostingu)
-  app.get('/api/health', (req, res) => res.json({
+  app.get('/api/health', async (req, res) => res.json({
     ok: true,
     ip: req.ip,
     forwardedFor: req.get('x-forwarded-for') || null,
     // Czy klucze Stripe'a są ustawione (same klucze nigdy nie wychodzą z serwera)
     stripe: Boolean(payments),
     stripeWebhook: Boolean(config.stripeWebhookSecret),
+    voucherify: loyalty.available,
+    resend: Boolean(mailer),
+    // Ile zadań odłożono na bok po wyczerpaniu prób; każde czeka na człowieka
+    deadLetters: await collections.jobs.countDocuments({ hasError: true, completedAt: null }),
   }));
   app.use('/api/events', eventsRouter(collections));
   app.use(
@@ -48,12 +52,12 @@ export function createApp(collections, config) {
     reservationsRouter(collections, {
       ttlMs: config.reservationTtlMs,
       limiter: limiter(),
-      payments,
     }),
   );
-  app.use('/api/reservations', checkoutRouter(collections, { payments, limiter: limiter() }));
+  app.use('/api/reservations', checkoutRouter(collections, { payments, loyalty, sagas, limiter: limiter() }));
   app.use('/api/reservations', purchaseRouter(collections, { allowDirectPurchase: config.allowDirectPurchase }));
   app.use('/api/tickets', ticketsRouter(collections));
+  app.use('/api/loyalty', loyaltyRouter({ loyalty, limiter: limiter() }));
   app.use('/api', notFoundApi);
 
   // Strony z kontraktu

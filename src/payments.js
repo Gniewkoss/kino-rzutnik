@@ -18,7 +18,8 @@ export function createPayments(config) {
   return {
     // Ten sam klucz idempotencji i te same parametry: podwójne „Zapłać” i ponowna próba po
     // przerwaniu płatności trafiają na tę samą sesję, więc klient nie zapłaci dwa razy.
-    createCheckout({ reservationId, amount, name, email, expiresAt, metadata }) {
+    // attempt rośnie, gdy klient zmieni liczbę punktów, bo wtedy to już inna kwota.
+    createCheckout({ reservationId, attempt, amount, name, email, expiresAt, metadata }) {
       return stripe.checkout.sessions.create(
         {
           mode: 'payment',
@@ -30,7 +31,7 @@ export function createPayments(config) {
           success_url: `${config.publicUrl}/reservations/${reservationId}/payment`,
           cancel_url: `${config.publicUrl}/reservations/${reservationId}?payment=canceled`,
         },
-        { idempotencyKey: `checkout:${reservationId}` },
+        { idempotencyKey: `checkout:${reservationId}:${attempt}` },
       );
     },
 
@@ -42,8 +43,17 @@ export function createPayments(config) {
       return stripe.refunds.create({ payment_intent: session.payment_intent }, { idempotencyKey: `refund:${session.id}` });
     },
 
-    expireSession(sessionId) {
-      return stripe.checkout.sessions.expire(sessionId);
+    // 'expired' = nikt już tej sesji nie opłaci; 'complete' = klient zdążył zapłacić
+    async expireSession(sessionId) {
+      try {
+        await stripe.checkout.sessions.expire(sessionId);
+        return 'expired';
+      } catch (err) {
+        if (err.type !== 'StripeInvalidRequestError') throw err;
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        if (session.status === 'open') throw err;
+        return session.status;
+      }
     },
   };
 }

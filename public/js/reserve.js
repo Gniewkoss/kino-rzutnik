@@ -28,6 +28,22 @@ api(`/api/events/${encodeURIComponent(eventId)}`).then(({ ok, data }) => {
   else if (takenSeats.includes(seatId)) { fail('Ten fotel jest już zajęty.'); submit.disabled = true; }
 });
 
+// Saldo po wpisaniu e-maila. Odpytujemy dopiero po wyjściu z pola: limit wywołań Voucherify jest mały.
+const emailInput = form.email;
+const balanceNote = document.getElementById('points-balance');
+let checkedEmail = '';
+emailInput.addEventListener('blur', async () => {
+  const email = emailInput.value.trim();
+  if (email === checkedEmail) return;
+  checkedEmail = email;
+  balanceNote.textContent = '';
+  if (!email || !emailInput.validity.valid) return;
+  try {
+    const { ok, data } = await api(`/api/loyalty?email=${encodeURIComponent(email)}`);
+    if (ok && emailInput.value.trim() === email) balanceNote.textContent = `Masz ${data.points} pkt. Zapłacisz nimi do połowy ceny biletu.`;
+  } catch { /* saldo to tylko podpowiedź */ }
+});
+
 let inFlight = false;
 
 form.addEventListener('submit', async (e) => {

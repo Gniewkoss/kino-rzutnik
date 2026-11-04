@@ -208,6 +208,10 @@ main { flex: 1; padding: clamp(28px, 6vw, 64px) 0 96px; }
 .btn:disabled { opacity: .55; cursor: progress; }
 .btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
 .btn.ghost:hover { border-color: var(--ink); background: transparent; }
+.points-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.points-row .btn { width: auto; padding: 10px 16px; font-size: 15px; }
+.points-note { display: block; margin-top: 8px; font-size: 14px; color: var(--muted); }
+.points-note.error { color: var(--signal); }
 .pending-line { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; font-size: 24px; font-weight: 700; }
 .pending-line .spinner { flex: none; width: 20px; height: 20px; border: 2.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
 .btn .spinner { width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }

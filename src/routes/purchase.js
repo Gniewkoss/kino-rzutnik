@@ -23,15 +23,16 @@ export function purchaseRouter(collections, { allowDirectPurchase }) {
     // Od etapu II bilet powstaje dopiero po płatności (webhook Stripe'a)
     if (!allowDirectPurchase) throw new HttpError(402, 'PAYMENT_REQUIRED', 'Bilet wystawiamy po płatności kartą');
 
-    const code = await issueTicket(collections, reservation, { holdFilter: { expiresAt: { $gt: new Date() } } });
-    if (!code) throw new HttpError(410, 'RESERVATION_EXPIRED', 'Rezerwacja wygasła, fotel wrócił do puli');
-    res.status(200).json({ code });
+    const ticket = await issueTicket(collections, reservation, { holdFilter: { expiresAt: { $gt: new Date() } } });
+    if (!ticket) throw new HttpError(410, 'RESERVATION_EXPIRED', 'Rezerwacja wygasła, fotel wrócił do puli');
+    await collections.sagas.updateOne({ _id: id, status: 'running' }, { $set: { status: 'completed' } });
+    res.status(200).json({ code: ticket.code });
   });
 
   return router;
 }
 
-export function ticketsRouter({ events, seatHolds }) {
+export function ticketsRouter({ events, seatHolds, sagas }) {
   const router = Router();
 
   // Bilet po kodzie (poza wspólnym kontraktem): źródłem prawdy jest seatHolds
@@ -43,6 +44,7 @@ export function ticketsRouter({ events, seatHolds }) {
       { _id: hold.eventId },
       { projection: { title: 1, startsAt: 1, hall: 1, durationMin: 1 } },
     );
+    const saga = await sagas.findOne({ _id: hold.reservationId });
     res.json({
       code: hold.code,
       eventId: hold.eventId,
@@ -50,6 +52,9 @@ export function ticketsRouter({ events, seatHolds }) {
       customerName: hold.customerName,
       purchasedAt: hold.purchasedAt,
       amount: hold.amount,
+      cardAmount: saga?.cardAmount ?? hold.amount,
+      pointsUsed: saga?.pointsUsed ?? 0,
+      pointsEarned: saga?.pointsEarned ?? 0,
       event,
     });
   });

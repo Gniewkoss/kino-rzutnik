@@ -40,10 +40,10 @@ async function poll() {
       const waited = Date.now() - startedAt;
       if (data.status === 'paid') return location.replace(`/tickets/${data.code}`);
       if (data.refunded) {
-        return finish('Płatność dotarła po czasie i ktoś inny zajął już ten fotel, więc zwróciliśmy pieniądze na Twoją kartę. ', el('a', { href: `/events/${encodeURIComponent(data.eventId)}` }, 'Wybierz inny fotel'));
+        return finish('Płatność dotarła po czasie i ktoś inny zajął już ten fotel, więc zwróciliśmy pieniądze na Twoją kartę. Użyte punkty też wracają na konto. ', el('a', { href: `/events/${encodeURIComponent(data.eventId)}` }, 'Wybierz inny fotel'));
       }
       if (data.status === 'expired' && waited > EXPIRED_GRACE_MS) {
-        return finish('Rezerwacja wygasła, fotel wrócił do puli. Jeśli karta została obciążona, zwrócimy pieniądze. ', el('a', { href: `/events/${encodeURIComponent(data.eventId)}` }, 'Wybierz fotel jeszcze raz'));
+        return finish('Rezerwacja wygasła, fotel wrócił do puli. Jeśli karta została obciążona, zwrócimy pieniądze. Użyte punkty wracają na konto. ', el('a', { href: `/events/${encodeURIComponent(data.eventId)}` }, 'Wybierz fotel jeszcze raz'));
       }
       if (waited > SLOW_MS) {
         next = 4000;

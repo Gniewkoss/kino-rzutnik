@@ -2,13 +2,25 @@
 services:
   mongo:
     image: mongo:7
+    # Replica set, bo outbox i inbox potrzebują transakcji
+    command: ["--replSet", "rs0", "--bind_ip_all"]
     ports: ["27017:27017"]
+    healthcheck:
+      test: mongosh --quiet --eval "try { rs.status() } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }) }; db.hello().isWritablePrimary" | grep true
+      interval: 3s
+      retries: 20
   app:
     build: .
     ports: ["3000:3000"]
     environment:
-      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_URI: mongodb://mongo:27017/?replicaSet=rs0
       RESERVATION_TTL_SECONDS: "120"
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
-    depends_on: [mongo]
+      VOUCHERIFY_APP_ID: ${VOUCHERIFY_APP_ID:-}
+      VOUCHERIFY_APP_TOKEN: ${VOUCHERIFY_APP_TOKEN:-}
+      VOUCHERIFY_CAMPAIGN_ID: ${VOUCHERIFY_CAMPAIGN_ID:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+    depends_on:
+      mongo:
+        condition: service_healthy

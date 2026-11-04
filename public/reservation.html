@@ -30,6 +30,14 @@
       <p class="small" style="margin:0">Trzymamy Twój fotel jeszcze</p>
       <div class="countdown" id="countdown" role="timer" aria-live="off">–:––</div>
       <div class="progress"><div id="bar" style="width:100%"></div></div>
+      <div class="field hidden" id="points">
+        <label for="points-input">Użyj punktów</label>
+        <div class="points-row">
+          <input id="points-input" type="number" inputmode="numeric" min="0" step="1" value="0">
+          <button class="btn ghost" id="points-max" type="button">Najwięcej</button>
+        </div>
+        <span class="points-note" id="points-hint" role="status"></span>
+      </div>
       <button class="btn" id="buy" type="button">Zapłać</button>
       <p class="small">Zapłacisz kartą na stronie Stripe'a. To tryb testowy, pieniądze nie są pobierane: użyj karty 4242 4242 4242 4242.</p>
     </div>

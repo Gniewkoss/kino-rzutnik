@@ -24,6 +24,12 @@ export function parseReservationBody(body) {
   return { eventId, seatId, customerName, email };
 }
 
+export function normalizeEmail(value) {
+  if (typeof value !== 'string') return null;
+  const email = value.trim().toLowerCase();
+  return email.length <= 254 && EMAIL_RE.test(email) ? email : null;
+}
+
 export function isReservationId(id) {
   return typeof id === 'string' && UUID_RE.test(id);
 }

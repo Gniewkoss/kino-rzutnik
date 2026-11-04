@@ -1,8 +1,8 @@
 # 🎬 Kino Rzutnik
 
-System rezerwacji biletów do kina (projekt PAS S01, etap II). Klient wybiera seans i fotel, trzyma go przez 15 minut (w trybie testowym 2 minuty), płaci kartą na stronie Stripe'a i wraca po bilet z kodem.
+System rezerwacji biletów do kina (projekt PAS S01, etap III). Klient wybiera seans i fotel, trzyma go przez 15 minut (w trybie testowym 2 minuty), płaci kartą na stronie Stripe'a, częściowo także punktami, i dostaje bilet z kodem na stronie i mailem.
 
-**Stack:** Node.js 20+, Express 5, MongoDB, Stripe Checkout (tryb testowy). Frontend to statyczne strony HTML + JS serwowane przez ten sam serwer (monorepo).
+**Stack:** Node.js 20+, Express 5, MongoDB, Stripe Checkout, Voucherify i Resend (tryby testowe). Frontend to statyczne strony HTML + JS serwowane przez ten sam serwer (monorepo).
 
 ## Uruchomienie
 
@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Bez `MONGODB_URI` serwer startuje z MongoDB w pamięci (pierwsze uruchomienie pobiera binarkę mongod). Z prawdziwą bazą: skopiuj `.env.example` do `.env` albo użyj `docker compose up`.
+Bez `MONGODB_URI` serwer startuje z MongoDB w pamięci (pierwsze uruchomienie pobiera binarkę mongod). Baza musi być replica setem, bo outbox i inbox używają transakcji; Atlas i `docker compose` już nim są. Z prawdziwą bazą: skopiuj `.env.example` do `.env` albo użyj `docker compose up`.
 
 Aplikacja: http://localhost:3000
 
@@ -28,6 +28,11 @@ Aplikacja: http://localhost:3000
 | `STRIPE_SECRET_KEY` | (brak) | klucz testowy `sk_test_…`; klucz `sk_live_…` zatrzymuje start serwera; bez klucza `checkout` odpowiada `503` |
 | `STRIPE_WEBHOOK_SECRET` | (brak) | sekret `whsec_…` do sprawdzania podpisu webhooka |
 | `PUBLIC_URL` | `RENDER_EXTERNAL_URL` albo `http://localhost:PORT` | adres sklepu do powrotów ze Stripe'a |
+| `VOUCHERIFY_APP_ID`, `VOUCHERIFY_APP_TOKEN` | (brak) | klucze projektu Sandbox; bez nich płatność działa, tylko bez punktów |
+| `VOUCHERIFY_CAMPAIGN_ID` | (brak) | kampania lojalnościowa, zakłada ją `npm run voucherify:setup` |
+| `VOUCHERIFY_API_URL` | `https://api.voucherify.io` | adres API, jeśli konto jest na innym klastrze |
+| `RESEND_API_KEY` | (brak) | klucz Resend; bez niego zakup działa, tylko bez maila |
+| `MAIL_FROM` | `Kino Rzutnik <onboarding@resend.dev>` | nadawca maili |
 | `ALLOW_DIRECT_PURCHASE` | `false` | `true` włącza zakup bez płatności z etapu I, tylko do testów |
 
 ## Stripe
@@ -54,9 +59,23 @@ Data ważności dowolna w przyszłości, CVC dowolne trzy cyfry.
 
 `stripe trigger checkout.session.completed` tworzy sesję z własną kwotą i walutą, więc webhook ją odrzuci, jeśli nie zgadza się z rezerwacją. Pełny przepływ najlepiej sprawdzić przyciskiem „Zapłać”.
 
+## Voucherify i Resend
+
+1. Załóż konto Voucherify i pracuj w projekcie Sandbox. Klucze znajdziesz w ustawieniach projektu (Application ID i Secret Key).
+2. Załóż kampanię, w której każda nowa karta ma 1000 punktów. Skrypt wypisze `VOUCHERIFY_CAMPAIGN_ID`:
+
+```bash
+VOUCHERIFY_APP_ID=... VOUCHERIFY_APP_TOKEN=... npm run voucherify:setup
+```
+
+3. Załóż konto Resend i klucz API. Bez własnej domeny maile dochodzą tylko na adres właściciela konta i na `delivered@resend.dev` (także `delivered+jan@resend.dev`).
+4. Ustaw `VOUCHERIFY_APP_ID`, `VOUCHERIFY_APP_TOKEN`, `VOUCHERIFY_CAMPAIGN_ID` i `RESEND_API_KEY` w panelu Render.
+
+Sandbox Voucherify przyjmuje 100 wywołań na godzinę. Zakup z punktami zużywa kilka, więc wystarczy na kilkanaście zakupów. Stan pokazuje `/api/health` (`voucherify`, `resend`, `deadLetters`).
+
 ## Test chaosu
 
-Etap II, bez konta Stripe. Skrypt sam uruchamia serwer i atrapę API Stripe'a (podpisy, powtórzone webhooki, płatność po czasie, zwroty, awaria Stripe'a):
+Etapy II i III, bez kont. Skrypt sam uruchamia serwer i atrapę Stripe'a, Voucherify i Resend (podpisy, powtórzone webhooki, płatność po czasie, punkty, kompensacje, awarie usług). Atrapa nie zastępuje próby na prawdziwych usługach:
 
 ```bash
 npm run chaos:stripe
@@ -83,4 +102,5 @@ Limit ruchu jest trzymany w pamięci procesu, więc aplikacja musi działać jak
 
 - [docs/KONTRAKT.md](docs/KONTRAKT.md): API, model danych, adresy stron
 - [docs/ZAGROZENIA.md](docs/ZAGROZENIA.md): lista zagrożeń i jak każde jest obsłużone
+- [docs/NIEZAWODNOSC.md](docs/NIEZAWODNOSC.md): outbox, inbox, saga i kompensacje w kodzie
 - [docs/KARTY.md](docs/KARTY.md): podział pracy na karty i pliki

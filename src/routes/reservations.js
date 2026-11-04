@@ -7,7 +7,7 @@ import { holdKey, holdState, reservationState } from '../holds.js';
 
 const DUPLICATE_KEY = 11000;
 
-export function reservationsRouter({ events, reservations, seatHolds }, { ttlMs, limiter, payments }) {
+export function reservationsRouter({ events, reservations, seatHolds, sagas }, { ttlMs, limiter }) {
   const router = Router();
 
   router.post('/', limiter, async (req, res) => {
@@ -31,7 +31,7 @@ export function reservationsRouter({ events, reservations, seatHolds }, { ttlMs,
         // Atomowo: fotel wolny (brak dokumentu) albo trzymany przez wygasłą rezerwację.
         // Jeśli fotel jest zajęty, filtr nie pasuje, upsert próbuje wstawić ten sam _id
         // i baza zwraca duplicate key. Dzięki temu z 20 równoległych prób wygrywa jedna.
-        const previous = await seatHolds.findOneAndUpdate(
+        await seatHolds.updateOne(
           { _id: key, status: 'held', expiresAt: { $lte: now } },
           {
             $set: {
@@ -45,15 +45,10 @@ export function reservationsRouter({ events, reservations, seatHolds }, { ttlMs,
               expiresAt,
               createdAt: now,
             },
-            $unset: { code: '', purchasedAt: '', stripeSessionId: '' },
+            $unset: { code: '', purchasedAt: '' },
           },
-          { upsert: true, returnDocument: 'before' },
+          { upsert: true },
         );
-        // Fotel przejęty po wygasłej rezerwacji: zamykamy jej sesję, żeby nikt nie zapłacił za cudzy fotel.
-        // Jeśli to się nie uda, webhook i tak odda pieniądze.
-        if (previous?.stripeSessionId) {
-          payments?.expireSession(previous.stripeSessionId).catch((e) => console.warn('Stripe: nie zamknięto sesji:', e.message));
-        }
       } catch (err) {
         if (err?.code !== DUPLICATE_KEY) throw err;
 
@@ -96,6 +91,7 @@ export function reservationsRouter({ events, reservations, seatHolds }, { ttlMs,
       { _id: reservation.eventId },
       { projection: { title: 1, startsAt: 1, hall: 1, durationMin: 1, price: 1 } },
     );
+    const saga = await sagas.findOne({ _id: reservation._id });
 
     res.json({
       reservationId: reservation._id,
@@ -105,6 +101,11 @@ export function reservationsRouter({ events, reservations, seatHolds }, { ttlMs,
       status,
       amount: reservation.amount ?? event?.price,
       refunded: reservation.refundedAt ? true : undefined,
+      email: reservation.email,
+      pointsUsed: saga?.pendingOp?.target ?? saga?.pointsUsed ?? 0,
+      pointsEarned: status === 'paid' ? (saga?.pointsEarned ?? 0) : undefined,
+      cardAmount: status === 'paid' ? (saga?.cardAmount ?? reservation.amount) : undefined,
+      pointsReturned: saga?.results?.pointsReturned,
       createdAt: reservation.createdAt,
       expiresAt: reservation.expiresAt,
       serverTime: now,

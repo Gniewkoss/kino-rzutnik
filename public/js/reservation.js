@@ -12,13 +12,61 @@ let timer;
 let eventHref = '/';
 let baseTitle = document.title;
 let payLabel = 'Zapłać';
+let inFlight = false;
+let amount = 0;
+let maxPoints = 0;
 
-function expired() {
+const pointsBox = document.getElementById('points');
+const pointsInput = document.getElementById('points-input');
+const pointsHint = document.getElementById('points-hint');
+
+// Liczba punktów, którą można wysłać, albo null, gdy pole jest źle wypełnione
+function chosenPoints() {
+  if (pointsBox.classList.contains('hidden') || pointsInput.value === '') return pointsBox.classList.contains('hidden') ? 0 : null;
+  const points = Number(pointsInput.value);
+  return Number.isInteger(points) && points >= 0 && points <= maxPoints ? points : null;
+}
+
+// Cena zmienia się od razu, a przycisk pokazuje kwotę do dopłaty
+function updatePrice() {
+  const points = chosenPoints();
+  payLabel = `Zapłać ${fmtPrice(amount - (points ?? 0))}`;
+  if (!inFlight) {
+    buy.textContent = payLabel;
+    buy.disabled = points === null;
+  }
+  if (pointsBox.classList.contains('hidden')) return;
+  pointsHint.classList.toggle('error', points === null);
+  pointsHint.textContent = points === null
+    ? `Wpisz liczbę od 0 do ${maxPoints}.`
+    : `Możesz użyć najwięcej ${maxPoints} pkt (${fmtPrice(maxPoints)}). Cena ${fmtPrice(amount)}, dopłata kartą ${fmtPrice(amount - points)}.`;
+}
+
+// Punkty już odjęte dla tej rezerwacji też można wydać, więc doliczamy je do salda
+async function loadPoints(data) {
+  try {
+    const { ok, data: loyalty } = await api(`/api/loyalty?email=${encodeURIComponent(data.email)}`);
+    if (!ok) return;
+    maxPoints = Math.min(Math.floor(amount / 2), loyalty.points + (data.pointsUsed ?? 0));
+    pointsInput.max = maxPoints;
+    pointsInput.value = data.pointsUsed ?? 0;
+    pointsBox.classList.remove('hidden');
+    updatePrice();
+  } catch { /* bez salda można zapłacić samą kartą */ }
+}
+
+pointsInput.addEventListener('input', updatePrice);
+document.getElementById('points-max').addEventListener('click', () => {
+  pointsInput.value = maxPoints;
+  updatePrice();
+});
+
+function expired(pointsReturned) {
   clearInterval(timer);
   document.title = baseTitle;
   holding.classList.add('hidden');
   msg.className = 'notice';
-  msg.replaceChildren('Rezerwacja wygasła, fotel wrócił do puli. ', el('a', { href: eventHref }, 'Wybierz fotel jeszcze raz'));
+  msg.replaceChildren('Rezerwacja wygasła, fotel wrócił do puli. ', pointsReturned ? `${pointsReturned} pkt wróciło na Twoje konto. ` : '', el('a', { href: eventHref }, 'Wybierz fotel jeszcze raz'));
 }
 
 function startCountdown(expiresAt, serverTime, totalMs) {
@@ -62,18 +110,18 @@ async function load() {
       `${event.title}, ${fmtDate(event.startsAt)}, ${fmtTime(event.startsAt)}, ${event.hall}. Rezerwacja na: ${data.customerName}.`;
   }
 
-  if (data.status === 'expired') return expired();
+  if (data.status === 'expired') return expired(data.pointsReturned);
 
-  if (data.amount) payLabel = `Zapłać ${fmtPrice(data.amount)}`;
+  amount = data.amount ?? 0;
+  payLabel = `Zapłać ${fmtPrice(amount)}`;
   buy.textContent = payLabel;
+  loadPoints(data);
   if (new URLSearchParams(location.search).get('payment') === 'canceled') {
     showMessage(msg, 'Płatność przerwana, nic nie pobraliśmy. Możesz zapłacić jeszcze raz, dopóki trwa rezerwacja.', 'notice');
   }
   const total = Math.max(1, new Date(data.expiresAt) - new Date(data.createdAt));
   startCountdown(data.expiresAt, data.serverTime, total);
 }
-
-let inFlight = false;
 
 buy.addEventListener('click', async () => {
   // Blokada podwójnego kliknięcia; serwer i tak oddaje tę samą sesję płatności
@@ -83,7 +131,10 @@ buy.addEventListener('click', async () => {
   msg.className = 'hidden';
 
   try {
-    const res = await api(`/api/reservations/${encodeURIComponent(reservationId)}/checkout`, { method: 'POST' });
+    const res = await api(`/api/reservations/${encodeURIComponent(reservationId)}/checkout`, {
+      method: 'POST',
+      body: JSON.stringify({ points: chosenPoints() ?? 0 }),
+    });
     if (res.ok) return location.assign(res.data.url);
     if (res.status === 410) return expired();
     if (res.status === 409) return location.replace(`/reservations/${encodeURIComponent(reservationId)}/payment`);

@@ -28,4 +28,16 @@ export const config = {
   publicUrl: (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`).replace(/\/$/, ''),
   // Zakup bez płatności z etapu I. Tylko do testów, np. npm run chaos
   allowDirectPurchase: process.env.ALLOW_DIRECT_PURCHASE === 'true',
+  voucherifyAppId: process.env.VOUCHERIFY_APP_ID || '',
+  voucherifyAppToken: process.env.VOUCHERIFY_APP_TOKEN || '',
+  voucherifyCampaignId: process.env.VOUCHERIFY_CAMPAIGN_ID || '',
+  voucherifyApiUrl: (process.env.VOUCHERIFY_API_URL || 'https://api.voucherify.io').replace(/\/$/, ''),
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  resendApiUrl: (process.env.RESEND_API_URL || 'https://api.resend.com').replace(/\/$/, ''),
+  mailFrom: process.env.MAIL_FROM || 'Kino Rzutnik <onboarding@resend.dev>',
+  workerPollMs: int('WORKER_POLL_MS', 2000),
+  sagaSweepMs: int('SAGA_SWEEP_MS', 5000),
+  jobRetryBaseMs: int('JOB_RETRY_BASE_MS', 5000),
+  // Saldo w Voucherify zmienia się asynchronicznie: tyle czekamy, zanim sprawdzimy, czy zmiana doszła
+  pointsVerifyDelayMs: int('POINTS_VERIFY_DELAY_MS', 30_000),
 };
