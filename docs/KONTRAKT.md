@@ -41,6 +41,7 @@ Z `ALLOW_DIRECT_PURCHASE=true` (tylko testy) `purchase` działa jak w etapie I: 
 - Identyfikator klienta to e-mail. Kartę zakładamy przy pierwszej zmianie salda, kampania daje na start 1000 pkt.
 - 1 punkt = 1 grosz. Punktami najwyżej `floor(amount / 2)`. Za zakup `floor(kartą / 100) * 10`.
 - **Użyte i zebrane punkty zapisujemy w dokumencie `sagas`**, tak jak postęp zakupu.
+- Licznik w nagłówku pamięta e-mail w `localStorage` tej przeglądarki. To nie jest logowanie z hasłem, bo kontrakt API go nie ma: saldo może sprawdzić każdy, kto zna e-mail.
 - Punkty schodzą przy checkoucie, zbierane są po płatności. Szczegóły: [NIEZAWODNOSC.md](NIEZAWODNOSC.md).
 
 ## Strony

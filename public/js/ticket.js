@@ -1,6 +1,8 @@
 // Karta C: bilet z kodem, dodanie do kalendarza, udostępnienie, druk
 import { api, el, fmtTime, fmtDateShort, fmtPrice, parseSeat } from './common.js';
 
+import { watchForEarnedPoints } from './account.js';
+
 const code = decodeURIComponent(location.pathname.split('/').pop());
 const box = document.getElementById('ticket');
 
@@ -29,6 +31,8 @@ async function load() {
 
   const { event } = data;
   const seat = parseSeat(data.seatId);
+  // Świeży zakup: punkty dochodzą chwilę po płatności i wtedy gra animacja w nagłówku
+  if (data.pointsEarned > 0 && Date.now() - new Date(data.purchasedAt).getTime() < 5 * 60_000) watchForEarnedPoints();
   document.title = `Bilet: ${event?.title ?? data.code} – Kino Rzutnik`;
   const fact = (k, v) => el('div', {}, el('dt', {}, k), el('dd', {}, v));
 

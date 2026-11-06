@@ -1,6 +1,8 @@
 // Karta B: formularz rezerwacji fotela
 import { api, el, fmtTime, fmtDate, fmtPrice, seatLabel, showMessage, setBusy } from './common.js';
 
+import { accountEmail, setAccountEmail } from './account.js';
+
 const params = new URLSearchParams(location.search);
 const eventId = params.get('eventId') || '';
 const seatId = params.get('seatId') || '';
@@ -44,6 +46,12 @@ emailInput.addEventListener('blur', async () => {
   } catch { /* saldo to tylko podpowiedź */ }
 });
 
+// Zalogowany klient nie wpisuje e-maila drugi raz
+if (accountEmail()) {
+  emailInput.value = accountEmail();
+  emailInput.dispatchEvent(new Event('blur'));
+}
+
 let inFlight = false;
 
 form.addEventListener('submit', async (e) => {
@@ -64,7 +72,10 @@ form.addEventListener('submit', async (e) => {
       method: 'POST',
       body: JSON.stringify({ eventId, seatId, customerName: form.customerName.value.trim(), email: form.email.value.trim() }),
     });
-    if (res.ok) return location.replace(`/reservations/${res.data.reservationId}`);
+    if (res.ok) {
+      setAccountEmail(form.email.value.trim().toLowerCase());
+      return location.replace(`/reservations/${res.data.reservationId}`);
+    }
     if (res.status === 409) fail('Ktoś zarezerwował ten fotel przed chwilą.');
     else if (res.status === 429) showMessage(msg, `Za dużo prób naraz. Spróbuj ponownie za ${res.headers.get('Retry-After') || 'kilka'} s.`, 'notice error');
     else showMessage(msg, res.data?.message || 'Nie udało się zarezerwować fotela.', 'notice error');

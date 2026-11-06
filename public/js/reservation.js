@@ -1,6 +1,8 @@
 // Ekran z licznikiem i przycisk „Zapłać”, który przenosi na stronę płatności Stripe'a
 import { api, el, fmtTime, fmtDate, fmtPrice, seatLabel, showMessage, setBusy } from './common.js';
 
+import { setAccountEmail, refreshPoints, noteSpent } from './account.js';
+
 const reservationId = location.pathname.split('/').pop();
 const holding = document.getElementById('holding');
 const countdown = document.getElementById('countdown');
@@ -15,6 +17,7 @@ let payLabel = 'Zapłać';
 let inFlight = false;
 let amount = 0;
 let maxPoints = 0;
+let availablePoints = null;
 
 const pointsBox = document.getElementById('points');
 const pointsInput = document.getElementById('points-input');
@@ -47,7 +50,8 @@ async function loadPoints(data) {
   try {
     const { ok, data: loyalty } = await api(`/api/loyalty?email=${encodeURIComponent(data.email)}`);
     if (!ok) return;
-    maxPoints = Math.min(Math.floor(amount / 2), loyalty.points + (data.pointsUsed ?? 0));
+    availablePoints = loyalty.points + (data.pointsUsed ?? 0);
+    maxPoints = Math.min(Math.floor(amount / 2), availablePoints);
     pointsInput.max = maxPoints;
     pointsInput.value = data.pointsUsed ?? 0;
     pointsBox.classList.remove('hidden');
@@ -101,6 +105,8 @@ async function load() {
 
   const { event } = data;
   eventHref = `/events/${encodeURIComponent(data.eventId)}`;
+  setAccountEmail(data.email);
+  refreshPoints({ force: true });
   document.getElementById('chip').textContent = data.seatId;
   document.getElementById('back').href = eventHref;
   document.getElementById('title').textContent = seatLabel(data.seatId);
@@ -135,7 +141,15 @@ buy.addEventListener('click', async () => {
       method: 'POST',
       body: JSON.stringify({ points: chosenPoints() ?? 0 }),
     });
-    if (res.ok) return location.assign(res.data.url);
+    if (res.ok) {
+      // Niech klient zobaczy, jak punkty schodzą, zanim przejdzie na stronę Stripe'a
+      const points = chosenPoints() ?? 0;
+      if (availablePoints !== null && points > 0) {
+        noteSpent(availablePoints - points);
+        await new Promise((r) => setTimeout(r, 800));
+      }
+      return location.assign(res.data.url);
+    }
     if (res.status === 410) return expired();
     if (res.status === 409) return location.replace(`/reservations/${encodeURIComponent(reservationId)}/payment`);
     showMessage(msg, res.data?.message || 'Nie udało się rozpocząć płatności.', 'notice error');

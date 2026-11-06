@@ -52,12 +52,12 @@ main { flex: 1; padding: clamp(28px, 6vw, 64px) 0 96px; }
 .tnum { font-variant-numeric: tabular-nums; }
 
 /* Nagłówek */
-.site-header { border-bottom: 1px solid var(--line); }
+.site-header { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 1px solid var(--line); }
 .site-header .wrap { display: flex; align-items: center; height: 68px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
 .brand img { width: 30px; height: 30px; }
 .brand-name { font-weight: 800; font-size: 21px; font-variation-settings: 'wdth' var(--wide); letter-spacing: -0.01em; }
-.site-header nav { margin-left: auto; }
+.site-header nav { margin-left: auto; display: flex; align-items: center; gap: clamp(12px, 3vw, 24px); }
 .site-header nav a { text-decoration: none; color: var(--muted); font-weight: 500; }
 .site-header nav a:hover { color: var(--ink); }
 
@@ -220,6 +220,41 @@ main { flex: 1; padding: clamp(28px, 6vw, 64px) 0 96px; }
 .notice.error { background: color-mix(in oklab, var(--signal) 14%, transparent); color: var(--signal); }
 .notice a { font-weight: 600; }
 
+/* Punkty w nagłówku */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.account { position: relative; view-transition-name: points; }
+.points-chip {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 14px 0 11px;
+  border: 1.5px solid var(--cobalt); border-radius: 999px; cursor: pointer;
+  background: var(--cobalt-soft); color: var(--ink); font: 500 15px var(--font);
+  transition: background-color .25s, color .25s, box-shadow .4s;
+}
+.points-chip:hover { background: color-mix(in oklab, var(--cobalt) 22%, var(--cobalt-soft)); }
+.points-icon { width: 12px; height: 12px; background: var(--cobalt); transform: rotate(45deg); border-radius: 3px; transition: background-color .25s; }
+.points-value { font-weight: 800; font-size: 17px; font-variation-settings: 'wdth' 112; font-variant-numeric: tabular-nums; }
+.points-value:empty { display: none; }
+.points-chip.gaining { background: var(--cobalt); color: var(--on-cobalt); box-shadow: 0 0 0 7px color-mix(in oklab, var(--cobalt) 26%, transparent); }
+.points-chip.gaining .points-icon { background: var(--on-cobalt); }
+.points-delta {
+  position: absolute; top: calc(100% + 8px); left: 50%; z-index: 30; padding: 5px 11px; border-radius: 999px;
+  font-weight: 800; font-size: 15px; white-space: nowrap; pointer-events: none; transform: translate(-50%, 8px);
+}
+.points-delta.gain { background: var(--cobalt); color: var(--on-cobalt); }
+.points-delta.spend { background: var(--ink); color: var(--paper); }
+.points-spark { position: absolute; top: 50%; left: 50%; z-index: 30; width: 9px; height: 9px; border-radius: 2px; background: var(--cobalt); pointer-events: none; }
+.account-panel {
+  position: fixed; inset: 76px max(var(--gutter), calc((100vw - 1180px) / 2 + var(--gutter))) auto auto; margin: 0;
+  width: min(320px, calc(100vw - 32px)); padding: 20px; border: 1px solid var(--line); border-radius: 16px;
+  background: var(--surface); color: var(--ink); box-shadow: 0 18px 50px color-mix(in oklab, var(--ink) 18%, transparent);
+}
+.account-panel .field { margin-bottom: 14px; }
+.account-panel .btn { padding: 12px 18px; font-size: 16px; }
+.account-email { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.account-balance { margin: 6px 0 0; }
+.account-panel .small { margin: 10px 0 16px; }
+
+@media (max-width: 420px) { .site-header nav > a { display: none; } }
+
 /* Licznik */
 .countdown {
   font-weight: 800; font-variation-settings: 'wdth' var(--wide); font-variant-numeric: tabular-nums;
@@ -260,6 +295,7 @@ main { flex: 1; padding: clamp(28px, 6vw, 64px) 0 96px; }
   @view-transition { navigation: none; }
 }
 @media print {
+  .site-header { position: static; }
   .site-header, .site-footer, .back, .ticket-actions, .lead { display: none; }
   body { background: #fff; }
   .ticket { background: #fff; color: #000; border: 2px solid #000; }
